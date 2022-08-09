@@ -51,4 +51,26 @@ describe('Analyzer', () => {
     const features = await analyse('**/empty.feature', path.join(__dirname, '..', 'example'));
     expect(features[0].error).not.equal(undefined);
   });
+
+  it('Supports non-english Gherkin dialects', async () => {
+    const features = await analyse('**/german.feature', path.join(__dirname, '..', 'example'));
+    expect(features.length).equal(1);
+    expect(features[0].feature).to.equal('Eine Deutsche Spezifikation');
+    expect(features[0].scenario.length).equal(1);
+    expect(features[0].scenario[0].steps.length).equal(3);
+    expect(features[0].scenario[0].steps).to.deep.equal([
+      {
+        keyword: 'Given',
+        title: 'die Spezifikation ist in Deutsch geschrieben',
+      },
+      {
+        keyword: 'When',
+        title: 'die Spezifikation zu Testomatio exportiert wird',
+      },
+      {
+        keyword: 'Then',
+        title: 'werden die Schlüsselworte ins Englische übersetzt',
+      }
+    ]);
+  });
 });
