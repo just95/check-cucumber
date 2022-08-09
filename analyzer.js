@@ -5,7 +5,32 @@ const path = require('path');
 
 
 let workDir;
-const invalidKeys = ['And', 'But'];
+
+const keywordTypes = ['given', 'when', 'then', 'and', 'but'];
+
+const translateKeyword = ({
+  localizedKeyword,
+  previousKeyword,
+  dialect,
+}) => {
+  const keywordType = keywordTypes.find(
+    type => dialect[type].includes(localizedKeyword)
+  );
+  switch (keywordType) {
+    case 'given': return 'Given';
+    case 'when': return 'When';
+    case 'then': return 'Then';
+    case 'and':
+    case 'but':
+      if (!previousKeyword) {
+        console.log(chalk.red(`Got conjunction keyword "${localizedKeyword}" without prior non-conjunction keyword`));
+      }
+      return previousKeyword;
+    default:
+      console.log(chalk.red(`Unknown keyword "${localizedKeyword}"`));
+      return null;
+  }
+};
 
 const getLocation = scenario => (scenario.tags.length ? scenario.tags[0].location.line - 1 : scenario.location.line - 1);
 
@@ -27,6 +52,7 @@ const getTitle = scenario => {
 const getScenarioCode = (source, feature, file) => {
   const sourceArray = source.split('\n');
   const fileName = path.relative(workDir, file);
+  const dialect = Gherkin.dialects()[feature.language];
   const scenarios = [];
 
   for (let i = 0; i < feature.children.length; i += 1) {
@@ -38,18 +64,22 @@ const getScenarioCode = (source, feature, file) => {
         console.log(' - ', scenario.name);
       }
       const steps = [];
-      let previousValidStep = '';
+      let previousKeyword = null;
       const scenarioJson = { name: scenario.name, file: fileName };
       const start = getLocation(scenario);
       const end = ((i === feature.children.length - 1) ? sourceArray.length : getLocation(feature.children[i + 1].scenario));
       for (const step of scenario.steps) {
-        let keyword = step.keyword.trim();
-        if (invalidKeys.includes(keyword)) {
-          keyword = previousValidStep;
+        let keyword = translateKeyword({
+          localizedKeyword: step.keyword,
+          previousKeyword,
+          dialect,
+        });
+        if (keyword) {
+          steps.push({ title: step.text, keyword });
+          previousKeyword = keyword;
         } else {
-          previousValidStep = keyword;
+          console.log(chalk.red(`Skipping step "${step.keyword}${step.text}"`));
         }
-        steps.push({ title: step.text, keyword });
       }
       scenarioJson.line = start;
       scenarioJson.tags = scenario.tags.map(t => t.name.slice(1));
