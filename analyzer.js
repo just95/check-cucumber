@@ -32,6 +32,27 @@ const translateKeyword = ({
   }
 };
 
+const translateCodeLine = dialect => line => {
+  const trimmedLine = line.trim();
+  let bestKeywordType = '';
+  let bestLocalizedKeyword = '';
+  for (let [keywordType, localizedKeywords] of Object.entries(dialect)) {
+    if (Array.isArray(localizedKeywords)) {
+      for (let localizedKeyword of localizedKeywords) {
+        if (trimmedLine.startsWith(localizedKeyword) &&
+            localizedKeyword.length > bestLocalizedKeyword.length) {
+          bestKeywordType = keywordType;
+          bestLocalizedKeyword = localizedKeyword;
+        }
+      }
+    }
+  }
+  if (!bestKeywordType) return line;
+  const englishDialect = Gherkin.dialects()["en"];
+  const englishKeyword = englishDialect[bestKeywordType].find(k => k != "* ");
+  return line.replace(bestLocalizedKeyword, englishKeyword);
+};
+
 const getLocation = scenario => (scenario.tags.length ? scenario.tags[0].location.line - 1 : scenario.location.line - 1);
 
 const getTitle = scenario => {
@@ -83,7 +104,7 @@ const getScenarioCode = (source, feature, file) => {
       }
       scenarioJson.line = start;
       scenarioJson.tags = scenario.tags.map(t => t.name.slice(1));
-      scenarioJson.code = sourceArray.slice(start, end).join('\n');
+      scenarioJson.code = sourceArray.slice(start, end).map(translateCodeLine(dialect)).join('\n');
       scenarioJson.steps = steps;
       scenarios.push(scenarioJson);
     }
